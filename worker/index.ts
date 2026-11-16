@@ -87,9 +87,8 @@ async function handle(request: Request, env: Env): Promise<Response> {
   if (!/^[0-9a-f]{32}$/.test(account) || !(site === 'all' || /^[0-9a-f]{32}$/.test(site)) || !RANGES.includes(range as Range)) {
     return fail('Invalid account, site or range', 400)
   }
-  return json(await fetchAnalytics(token, account, site, range as Range), 200, {
-    'Cache-Control': 'private, max-age=60',
-  })
+  // no-store: a cached copy made the Refresh button and the online count stale for up to a minute.
+  return json(await fetchAnalytics(token, account, site, range as Range), 200, { 'Cache-Control': 'no-store' })
 }
 
 export default {

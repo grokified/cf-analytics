@@ -49,6 +49,19 @@ export default function Dashboard({ me, onLogout, onNavigate }: { me: Me; onLogo
     return () => ac.abort()
   }, [account, site, range, key])
 
+  // Re-poll every minute so "online" stays current. Silent: no dimming, errors ignored.
+  useEffect(() => {
+    const ac = new AbortController()
+    const id = setInterval(() => {
+      if (document.visibilityState !== 'visible') return
+      api<Analytics>(`/api/analytics?${new URLSearchParams({ account, site, range })}`, { signal: ac.signal }).then(setData, () => {})
+    }, 60_000)
+    return () => {
+      clearInterval(id)
+      ac.abort()
+    }
+  }, [account, site, range])
+
   const current = sites.find((s) => s.accountId === account && s.siteTag === site)
   const extra = (data?.hostnames.length ?? 0) - 1
 
