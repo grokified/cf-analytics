@@ -1,8 +1,11 @@
 import { RANGES } from '../shared/api.ts'
-import type { ApiError, Me, Range } from '../shared/api.ts'
+import type { ApiError, LiveTicket, Me, Range } from '../shared/api.ts'
 import { cfError, cfGet, fetchAnalytics, listSites, toAccounts } from './cloudflare.ts'
 import { LogError, requestLogs, runtimeLogs } from './logs.ts'
+import { cleanPath, normHost, signTicket, verifyTicket } from './presence.ts'
 import { clearCookie, readToken, sealCookie } from './session.ts'
+
+export { Presence } from './presence.ts'
 
 const json = (body: unknown, status = 200, headers: Record<string, string> = {}) =>
   Response.json(body, { status, headers })
@@ -17,7 +20,12 @@ const ROUTES: Record<string, string> = {
   '/api/analytics': 'GET',
   '/api/logs/requests': 'GET',
   '/api/logs/runtime': 'GET',
+  '/api/live/tickets': 'GET',
+  '/api/live': 'GET',
+  '/api/rt': 'GET',
 }
+
+const presence = (env: Env, host: string) => env.PRESENCE.get(env.PRESENCE.idFromName(host))
 
 async function handle(request: Request, env: Env): Promise<Response> {
   const url = new URL(request.url)
@@ -31,6 +39,34 @@ async function handle(request: Request, env: Env): Promise<Response> {
     }
     const origin = request.headers.get('origin')
     if (origin && origin !== url.origin) return fail('Cross-origin request blocked', 403)
+  }
+
+  // Live sockets. Neither needs the session cookie: visitors are anonymous, dashboards carry a signed ticket.
+  if (url.pathname === '/api/rt' || url.pathname === '/api/live') {
+    if (request.headers.get('upgrade')?.toLowerCase() !== 'websocket') return fail('Expected a WebSocket upgrade', 426)
+    let origin = ''
+    try {
+      origin = new URL(request.headers.get('origin') ?? '').hostname
+    } catch {
+      // missing or malformed Origin
+    }
+
+    if (url.pathname === '/api/rt') {
+      const site = normHost(url.searchParams.get('site') ?? '')
+      if (!site || !(origin === site || origin.endsWith(`.${site}`))) return fail('Origin not allowed', 403)
+      const q = new URLSearchParams({
+        p: cleanPath(url.searchParams.get('p')),
+        c: String((request.cf as { country?: string } | undefined)?.country ?? ''),
+      })
+      return presence(env, site).fetch(`https://presence/visitor?${q}`, { headers: { Upgrade: 'websocket' } })
+    }
+
+    const host = normHost(url.searchParams.get('host') ?? '')
+    if (origin !== url.hostname) return fail('Cross-origin request blocked', 403)
+    if (!host || !(await verifyTicket(host, url.searchParams.get('t') ?? '', env.SESSION_SECRET))) {
+      return fail('Invalid or expired live ticket', 401)
+    }
+    return presence(env, host).fetch('https://presence/dashboard', { headers: { Upgrade: 'websocket' } })
   }
 
   if (url.pathname === '/api/logout') return new Response(null, { status: 204, headers: { 'Set-Cookie': clearCookie } })
@@ -68,6 +104,21 @@ async function handle(request: Request, env: Env): Promise<Response> {
   if (url.pathname === '/api/sites') {
     if (!accts.ok) return fail('Cloudflare request failed', 502)
     return json(await listSites(token, toAccounts(accts)))
+  }
+
+  if (url.pathname === '/api/live/tickets') {
+    if (!accts.ok) return fail('Cloudflare request failed', 502)
+    const account = toAccounts(accts).find((a) => a.id === url.searchParams.get('account'))
+    const site = url.searchParams.get('site') ?? ''
+    if (!account || !(site === 'all' || /^[0-9a-f]{32}$/.test(site))) return fail('Invalid account or site', 400)
+    const hosts = new Set(
+      (await listSites(token, [account]))
+        .filter((s) => site === 'all' || s.siteTag === site)
+        .map((s) => normHost(s.host))
+        .filter(Boolean),
+    )
+    const tickets = await Promise.all([...hosts].map(async (host) => ({ host, ticket: await signTicket(host, env.SESSION_SECRET) })))
+    return json(tickets satisfies LiveTicket[], 200, { 'Cache-Control': 'no-store' })
   }
 
   if (url.pathname.startsWith('/api/logs/')) {

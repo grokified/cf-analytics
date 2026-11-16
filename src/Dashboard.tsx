@@ -5,6 +5,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuRadioGroup, DropdownMenu
 import { api } from '@/lib/api'
 import Breakdowns from './Breakdowns'
 import Header, { Favicon } from './Header'
+import LiveIndicator from './Live'
 import MetricCard, { type Metric } from './Overview'
 
 const RANGE_LABEL: Record<Range, string> = { '24h': 'Last 24 Hours', '7d': 'Last 7 Days', '30d': 'Last 30 Days', '90d': 'Last 3 Months' }
@@ -89,10 +90,7 @@ export default function Dashboard({ me, onLogout, onNavigate }: { me: Me; onLogo
               {extra > 0 && <span className="text-muted-foreground">+{extra}</span>}
             </div>
             <span className="text-line-strong">|</span>
-            <div className="flex items-center gap-2">
-              <span className={`size-2 rounded-full ${data?.online ? 'bg-success' : 'bg-[#555]'}`} />
-              {data?.online ?? 0} online
-            </div>
+            <LiveIndicator account={account} site={site} estimate={data?.online ?? 0} />
           </div>
           <div className="flex items-center gap-2">
             <DropdownMenu>

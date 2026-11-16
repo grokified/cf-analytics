@@ -19,7 +19,7 @@ Cloudflare Web Analytics is free, cookie-less and privacy-friendly, but its dash
 - **Visits, page views and views per visit**, each with the change against the previous period of the same length.
 - **Time ranges** of 24 hours (hourly), 7 days, 30 days and 3 months (daily). The bucket that is still in progress is drawn dashed.
 - **Breakdowns:** pages, hostnames, referrers, countries (with flags), devices, browsers and operating systems. Each panel opens a searchable full list.
-- **Online now:** visits in the last 5 minutes.
+- **Live visitors:** add one script tag to a site and the dashboard shows open tabs, with their pages and countries, the moment people arrive, navigate or leave. Without the script, the count falls back to Cloudflare's estimate of people who viewed a page in the last 5 minutes, which arrives 1–2 minutes late. See [Live visitors](#live-visitors).
 - **Request logs:** every HTTP request to a proxied site, with time, status, host, method and path. Filter by status class, method, cache status and host, search paths, and choose a range from 30 minutes to 7 days. A stacked histogram shows 2xx–3xx, 4xx and 5xx over time. Clicking a row opens a details sheet with the request, client (country, device, browser, ASN) and edge (cache, origin status and time, security action) fields.
 - **Runtime logs:** `console.log` output, errors and invocations from the Workers in the account, through Workers Observability. Filter by level, Worker and outcome, run a full-text search, and open the raw event in the details sheet.
 - **Live mode** refreshes the logs every 5 seconds. You can also load older rows or download what's on screen as JSON.
@@ -98,12 +98,36 @@ One Worker serves both the React single-page app (as [static assets](https://dev
 | `GET /api/analytics?account=&site=&range=` | Runs one GraphQL query and returns totals, the time series and every breakdown |
 | `GET /api/logs/requests?zone=&range=` | Request logs for one zone: a page of rows, the histogram and the filter counts |
 | `GET /api/logs/runtime?account=&range=` | Runtime logs for every Worker in an account, in the same shape |
+| `GET /api/live/tickets?account=&site=` | Signed, 12-hour tickets that let the dashboard open live sockets for each site host |
+| `WS /api/live?host=&t=` | Dashboard socket: receives a snapshot of open tabs, pages and countries on every change |
+| `WS /api/rt?site=&p=` | Visitor socket opened by `rt.js` |
 
 Each dashboard load is a single GraphQL request to the `rumPageloadEventsAdaptiveGroups` dataset. Aliases fetch the totals, the previous period, online visitors, the series and seven breakdowns in one round trip. The request and response types live in [`shared/api.ts`](shared/api.ts), which both the Worker and the UI import.
 
 Request logs are also one GraphQL request, to the zone's `httpRequestsAdaptive` (rows) and `httpRequestsAdaptiveGroups` (histogram and filter counts) datasets. Runtime logs come from the [Workers Observability query API](https://developers.cloudflare.com/workers/observability/logs/workers-logs/), with one call for the events, one for the histogram and one for each filter. Both endpoints take the filters as comma-separated query parameters (`status=4xx,5xx`, `level=error`), plus `q` for search and `before` for paging. Pages are 100 rows, newest first.
 
 POST requests must send `Content-Type: application/json` and a same-origin `Origin` header. The cookie is `SameSite=Lax`.
+
+## Live visitors
+
+Cloudflare's own data arrives 1–2 minutes late, so the live count comes from a small script of our own. Add it to every page of a site, using your deployment's URL:
+
+```html
+<script src="https://<your-cf-analytics-worker>/rt.js" defer></script>
+```
+
+The *N online* button in the toolbar shows this snippet, ready to copy, until the first visitor connects.
+
+- Each visible tab holds one WebSocket to a [Durable Object](https://developers.cloudflare.com/durable-objects/) for that site. The dashboard holds one too, so changes reach it in under a second.
+- Client-side navigation (`pushState`, `replaceState`, back and forward) updates the page without reconnecting, so it works with Next.js, React Router and other single-page apps.
+- A tab's socket closes a minute after the tab is hidden and reopens when it's visible again.
+- No cookies or storage, and the script sends only the path. The country comes from Cloudflare's edge.
+- If the pages run on a subdomain of the host shown in the dashboard (`app.example.com` for `example.com`), add `data-site="example.com"` to the tag.
+- If the site sends a `Content-Security-Policy`, allow your Worker's origin in `script-src` and `connect-src`.
+
+**Who can send visitors.** The Worker only accepts a visitor socket when its `Origin` header is the site's host or a subdomain of it. A site's Durable Object only accepts visitors after someone signed in with access to that site has opened it in the dashboard once, so nobody can use your deployment to count a site you don't run.
+
+**Cost.** The sockets use the [WebSocket Hibernation API](https://developers.cloudflare.com/durable-objects/best-practices/websockets/#websocket-hibernation-api), so idle tabs don't bill duration and pings are answered without waking the object. Each arrival, navigation and departure is one request to the Durable Object. The Workers Free plan includes 100,000 Durable Object requests a day.
 
 ## What Cloudflare's data can and can't show
 
@@ -124,8 +148,10 @@ cf-analytics/
 │   ├── index.ts         # routes, CSRF checks, handlers
 │   ├── cloudflare.ts    # REST calls, GraphQL query builder and response shaping
 │   ├── logs.ts          # request and runtime log queries
+│   ├── presence.ts      # live visitors Durable Object and dashboard tickets
 │   └── session.ts       # AES-GCM session cookie
 ├── shared/api.ts        # API contract shared by Worker and UI
+├── public/rt.js         # live visitors script that sites embed
 ├── src/
 │   ├── App.tsx          # sign-in gate, Analytics/Logs routing
 │   ├── Login.tsx
@@ -137,6 +163,7 @@ cf-analytics/
 │   ├── LogsFilters.tsx  # view selector, timeline and filter checkboxes
 │   ├── LogsTable.tsx    # histogram and log rows
 │   ├── LogDetails.tsx   # details sheet
+│   ├── Live.tsx         # live visitor count, popover and setup snippet
 │   ├── demo.ts          # sample data for ?demo (dev only)
 │   └── components/ui/   # shadcn/ui components
 ├── wrangler.jsonc

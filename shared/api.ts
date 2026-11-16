@@ -130,3 +130,21 @@ export type LogsPage<T> = {
   facets: Record<string, Facet[]> // requests: status ("2xx".."5xx"), method, cache, host; runtime: level, worker, outcome
   nextBefore: string | null // pass as `before` for older rows; null = no more
 }
+
+// ---------------------------------------------------------------------------
+// Live visitors (our own script + one Durable Object per site host)
+//
+//   GET /api/live/tickets?account=<id>&site=<siteTag|all> -> LiveTicket[]  (session required)
+//   WS  /api/live?host=<host>&t=<ticket>  -> pushes LiveSnapshot on connect and on every change
+//   WS  /api/rt?site=<host>&p=<path>      -> visitor socket opened by /rt.js; Origin must be <host> or a subdomain
+// A host only accepts visitors after someone with access to it has opened the dashboard once.
+// ---------------------------------------------------------------------------
+
+export type LiveTicket = { host: string; ticket: string }
+
+export type LiveSnapshot = {
+  online: number // open, visible tabs running /rt.js
+  pages: Facet[] // path -> tabs on it
+  countries: Facet[] // ISO alpha-2 -> tabs
+  installed: boolean // a visitor has connected at least once
+}

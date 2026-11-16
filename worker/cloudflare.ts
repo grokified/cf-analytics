@@ -92,7 +92,7 @@ export function buildAnalyticsQuery(accountId: string, site: string, range: Rang
   viewer { accounts(filter: { accountTag: $a }) {
     total: rumPageloadEventsAdaptiveGroups(filter: $f, limit: 1) { ${AGG} }
     prev: rumPageloadEventsAdaptiveGroups(filter: $p, limit: 1) { ${AGG} }
-    online: rumPageloadEventsAdaptiveGroups(filter: $o, limit: 1) { ${AGG} }
+    online: rumPageloadEventsAdaptiveGroups(filter: $o, limit: 1000) { sum { visits } dimensions { requestHost countryName deviceType userAgentBrowser userAgentOS } }
     series: rumPageloadEventsAdaptiveGroups(filter: $f, limit: 200, orderBy: [${dim}_ASC]) { ${AGG} dimensions { ${dim} } }
     ${group('pages', '$f', 'requestPath')}
     ${group('hostnames', '$f', 'requestHost')}
@@ -132,7 +132,10 @@ export function shapeAnalytics(data: any, built: BuiltQuery, range: Range): Anal
     to: built.to,
     totals: totals(acc.total),
     previous: totals(acc.prev),
-    online: acc.online?.[0]?.sum?.visits ?? 0,
+    // ponytail: RUM has no visitor ID. Both numbers undercount, so take the larger: distinct host+country+device+browser+OS
+    // combos with a page view in the last 5 min (same combo = one person), and visits started in that window
+    // (misses anyone who landed earlier and is still browsing).
+    online: Math.max(acc.online?.length ?? 0, (acc.online ?? []).reduce((n: number, g: Agg) => n + (g.sum?.visits ?? 0), 0)),
     series: built.buckets.map((t) => ({
       t,
       visits: byBucket.get(t)?.visits ?? 0,
