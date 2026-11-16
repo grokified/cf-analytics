@@ -34,13 +34,15 @@ Click **Deploy to Cloudflare** above. Cloudflare copies this repository to your 
 
 ### From the command line
 
+Requires [Bun](https://bun.sh) 1.3 or later.
+
 ```bash
 git clone https://github.com/imfaisii009/cf-analytics.git
 cd cf-analytics
-npm install
-npx wrangler login
-npx wrangler secret put SESSION_SECRET   # paste the output of: openssl rand -hex 32
-npm run deploy
+bun install
+bunx wrangler login
+bunx wrangler secret put SESSION_SECRET   # paste the output of: openssl rand -hex 32
+bun run deploy
 ```
 
 Wrangler prints your URL, for example `https://cf-analytics.<your-subdomain>.workers.dev`.
@@ -61,20 +63,20 @@ Your sites need [Cloudflare Web Analytics](https://developers.cloudflare.com/web
 ## Local development
 
 ```bash
-npm install
+bun install
 cp .dev.vars.example .dev.vars   # then put a random string in SESSION_SECRET
-npm run dev
+bun run dev
 ```
 
 Open `http://localhost:5173`. To work on the UI without a token, open `http://localhost:5173/?demo` to load generated sample data. Demo mode only exists in the dev server and is removed from production builds.
 
 | Script | What it does |
 | --- | --- |
-| `npm run dev` | Vite dev server with the Worker running in workerd |
-| `npm run build` | Type-check the app and Worker, then build both |
-| `npm run deploy` | Build, then `wrangler deploy` |
-| `npm run lint` | oxlint |
-| `npm run cf-typegen` | Regenerate `worker-configuration.d.ts` after changing `wrangler.jsonc` |
+| `bun run dev` | Vite dev server with the Worker running in workerd |
+| `bun run build` | Type-check the app and Worker, then build both |
+| `bun run deploy` | Build, then `wrangler deploy` |
+| `bun run lint` | oxlint |
+| `bun run cf-typegen` | Regenerate `worker-configuration.d.ts` after changing `wrangler.jsonc` |
 
 ## How it works
 
@@ -124,7 +126,7 @@ cf-analytics/
 
 ## Stack
 
-React 19, Vite with [`@cloudflare/vite-plugin`](https://developers.cloudflare.com/workers/vite-plugin/), Tailwind CSS v4, [shadcn/ui](https://ui.shadcn.com) (Radix), Recharts, the Geist font, and Cloudflare Workers.
+Bun, React 19, Vite with [`@cloudflare/vite-plugin`](https://developers.cloudflare.com/workers/vite-plugin/), Tailwind CSS v4, [shadcn/ui](https://ui.shadcn.com) (Radix), Recharts, the Geist font, and Cloudflare Workers.
 
 ## Hosted instance
 
