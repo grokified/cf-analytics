@@ -30,6 +30,7 @@ export async function listSites(token: string, accounts: Account[]): Promise<Sit
             accountName: acc.name,
             siteTag: x.site_tag,
             host: x.host || x.ruleset?.zone_name || x.site_tag,
+            zoneTag: x.ruleset?.zone_tag ?? null,
           })
         }
       }

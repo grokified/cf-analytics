@@ -10,7 +10,7 @@ import MetricCard, { type Metric } from './Overview'
 const RANGE_LABEL: Record<Range, string> = { '24h': 'Last 24 Hours', '7d': 'Last 7 Days', '30d': 'Last 30 Days', '90d': 'Last 3 Months' }
 const METRICS: Metric[] = ['visits', 'pageViews', 'ratio']
 
-export default function Dashboard({ me, onLogout }: { me: Me; onLogout: () => void }) {
+export default function Dashboard({ me, onLogout, onNavigate }: { me: Me; onLogout: () => void; onNavigate: (to: string) => void }) {
   const q = new URLSearchParams(location.search)
   const [account, setAccount] = useState(q.get('account') ?? me.accounts[0]?.id ?? '')
   const [site, setSite] = useState(q.get('site') ?? 'all')
@@ -54,7 +54,7 @@ export default function Dashboard({ me, onLogout }: { me: Me; onLogout: () => vo
 
   return (
     <div className="min-h-screen bg-background pb-16">
-      <Header sites={sites} account={account} site={site} onSelect={(a, s) => { setAccount(a); setSite(s) }} onLogout={onLogout} />
+      <Header sites={sites} account={account} site={site} path="/" onSelect={(a, s) => { setAccount(a); setSite(s) }} onNavigate={onNavigate} onLogout={onLogout} />
       <main className="mx-auto mt-6 w-full max-w-[1400px] px-4 sm:px-6">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-3 text-sm">

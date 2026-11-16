@@ -68,20 +68,50 @@ function SiteSwitcher({
   )
 }
 
+const TABS = [
+  { label: 'Analytics', to: '/' },
+  { label: 'Logs', to: '/logs' },
+]
+
+function Nav({ path, onNavigate, className }: { path: string; onNavigate: (to: string) => void; className: string }) {
+  return (
+    <nav className={className}>
+      {TABS.map((t) => (
+        <a
+          key={t.to}
+          href={t.to}
+          onClick={(e) => {
+            e.preventDefault()
+            onNavigate(t.to)
+          }}
+          className={`flex items-center border-b-2 px-3 text-sm ${path === t.to ? 'border-[#ededed] text-[#ededed]' : 'border-transparent text-[#a1a1a1] hover:text-[#ededed]'}`}
+        >
+          {t.label}
+        </a>
+      ))}
+    </nav>
+  )
+}
+
 export default function Header({
   sites,
   account,
   site,
+  path,
   onSelect,
+  onNavigate,
   onLogout,
 }: {
   sites: Site[]
   account: string
   site: string
+  path: string
   onSelect: (account: string, site: string) => void
+  onNavigate: (to: string) => void
   onLogout: () => void
 }) {
   return (
+    <>
     <header className="relative flex h-14 items-center justify-between border-b border-border bg-background px-4 sm:px-6">
       <div className="flex items-center gap-1.5">
         <div className="flex size-7 items-center justify-center rounded-md border border-border bg-card">
@@ -90,11 +120,13 @@ export default function Header({
         <span className="text-lg text-line-strong">/</span>
         <SiteSwitcher sites={sites} account={account} site={site} onSelect={onSelect} />
       </div>
-      <h1 className="absolute left-1/2 hidden -translate-x-1/2 text-sm font-medium sm:block">Web Analytics</h1>
+      <Nav path={path} onNavigate={onNavigate} className="absolute -bottom-px left-1/2 top-0 hidden -translate-x-1/2 sm:flex" />
       <Button variant="ghost" aria-label="Log out" onClick={onLogout} className="h-9 px-3 text-muted-foreground">
         <LogOut />
         <span className="hidden sm:inline">Log out</span>
       </Button>
     </header>
+    <Nav path={path} onNavigate={onNavigate} className="flex h-10 shrink-0 border-b border-border bg-background px-1.5 sm:hidden [&>a]:-mb-px" />
+    </>
   )
 }

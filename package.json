@@ -5,13 +5,13 @@
   "description": "Vercel-style analytics dashboard for Cloudflare Web Analytics. Self-host on Cloudflare Workers and sign in with an API token.",
   "license": "MIT",
   "author": "Faisal Ashfaq",
-  "homepage": "https://github.com/imfaisii009/cf-analytics#readme",
+  "homepage": "https://github.com/grokified/cf-analytics#readme",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/imfaisii009/cf-analytics.git"
+    "url": "git+https://github.com/grokified/cf-analytics.git"
   },
   "bugs": {
-    "url": "https://github.com/imfaisii009/cf-analytics/issues"
+    "url": "https://github.com/grokified/cf-analytics/issues"
   },
   "keywords": [
     "cloudflare",

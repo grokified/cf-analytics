@@ -5,7 +5,7 @@ import { Input } from '@/components/ui/input'
 import { api } from '@/lib/api'
 
 const TOKEN_URL =
-  'https://dash.cloudflare.com/profile/api-tokens?permissionGroupKeys=%5B%7B%22key%22%3A%22account_analytics%22%2C%22type%22%3A%22read%22%7D%2C%7B%22key%22%3A%22account_settings%22%2C%22type%22%3A%22read%22%7D%5D&accountId=*&zoneId=all&name=Web%20Analytics%20Dashboard'
+  'https://dash.cloudflare.com/profile/api-tokens?permissionGroupKeys=%5B%7B%22key%22%3A%22account_analytics%22%2C%22type%22%3A%22read%22%7D%2C%7B%22key%22%3A%22account_settings%22%2C%22type%22%3A%22read%22%7D%2C%7B%22key%22%3A%22analytics%22%2C%22type%22%3A%22read%22%7D%5D&accountId=*&zoneId=all&name=Web%20Analytics%20Dashboard'
 
 export default function Login({ initialError, onLogin }: { initialError: string; onLogin: (me: Me) => void }) {
   const [token, setToken] = useState('')
@@ -61,6 +61,8 @@ export default function Login({ initialError, onLogin }: { initialError: string;
           <ul className="mt-2 space-y-0.5 text-xs text-muted-foreground">
             <li>Account Analytics: Read</li>
             <li>Account Settings: Read</li>
+            <li>Zone Analytics: Read (request logs)</li>
+            <li className="opacity-60">Optional: Account › Workers Observability › Edit (runtime logs)</li>
           </ul>
         </div>
       </div>

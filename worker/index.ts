@@ -1,6 +1,7 @@
 import { RANGES } from '../shared/api.ts'
 import type { ApiError, Me, Range } from '../shared/api.ts'
 import { cfError, cfGet, fetchAnalytics, listSites, toAccounts } from './cloudflare.ts'
+import { LogError, requestLogs, runtimeLogs } from './logs.ts'
 import { clearCookie, readToken, sealCookie } from './session.ts'
 
 const json = (body: unknown, status = 200, headers: Record<string, string> = {}) =>
@@ -14,6 +15,8 @@ const ROUTES: Record<string, string> = {
   '/api/me': 'GET',
   '/api/sites': 'GET',
   '/api/analytics': 'GET',
+  '/api/logs/requests': 'GET',
+  '/api/logs/runtime': 'GET',
 }
 
 async function handle(request: Request, env: Env): Promise<Response> {
@@ -65,6 +68,16 @@ async function handle(request: Request, env: Env): Promise<Response> {
   if (url.pathname === '/api/sites') {
     if (!accts.ok) return fail('Cloudflare request failed', 502)
     return json(await listSites(token, toAccounts(accts)))
+  }
+
+  if (url.pathname.startsWith('/api/logs/')) {
+    try {
+      const page = url.pathname === '/api/logs/requests' ? await requestLogs(token, url) : await runtimeLogs(token, url)
+      return json(page, 200, { 'Cache-Control': 'no-store' })
+    } catch (e) {
+      if (e instanceof LogError) return fail(e.message, e.status)
+      throw e
+    }
   }
 
   // /api/analytics
