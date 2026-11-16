@@ -1,0 +1,2 @@
+# Random string that encrypts the session cookie. Generate one with: openssl rand -hex 32
+SESSION_SECRET=replace-with-a-long-random-string
