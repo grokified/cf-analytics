@@ -4,9 +4,13 @@ const API = 'https://api.cloudflare.com/client/v4'
 
 export type CfResult = { ok: boolean; status: number; body: any }
 
-/** GET against the Cloudflare REST API. Never throws on HTTP errors; the token is never logged. */
-export async function cfGet(token: string, path: string): Promise<CfResult> {
-  const res = await fetch(API + path, { headers: { Authorization: `Bearer ${token}` } })
+/** GET (or POST, when `json` is given) against the Cloudflare REST API. Never throws on HTTP errors; the token is never logged. */
+export async function cfGet(token: string, path: string, json?: unknown): Promise<CfResult> {
+  const res = await fetch(API + path, {
+    method: json === undefined ? 'GET' : 'POST',
+    headers: { Authorization: `Bearer ${token}`, ...(json === undefined ? {} : { 'Content-Type': 'application/json' }) },
+    body: json === undefined ? undefined : JSON.stringify(json),
+  })
   const body: any = await res.json().catch(() => null)
   return { ok: res.ok && body?.success === true, status: res.status, body }
 }
@@ -38,6 +42,33 @@ export async function listSites(token: string, accounts: Account[]): Promise<Sit
     }),
   )
   return perAccount.flat().sort((a, b) => a.host.localeCompare(b.host))
+}
+
+/**
+ * Turns on Web Analytics (automatic setup) for every zone the token can see that has no Web Analytics site yet.
+ * Run by the cron trigger with the owner's AUTO_ENABLE_TOKEN, never with a signed-in visitor's token.
+ * Returns the hosts it enabled. Cloudflare rejects a second site for the same zone, so overlapping runs are safe.
+ */
+export async function enableMissingSites(token: string): Promise<string[]> {
+  const accts = await cfGet(token, '/accounts?per_page=50')
+  if (!accts.ok) throw new Error(cfError(accts) ?? 'Cloudflare request failed')
+  const accounts = toAccounts(accts)
+  const covered = new Set((await listSites(token, accounts)).map((s) => s.zoneTag))
+  const enabled: string[] = []
+  for (const acc of accounts) {
+    for (let page = 1, pages = 1; page <= pages; page++) {
+      const r = await cfGet(token, `/zones?account.id=${acc.id}&per_page=50&page=${page}`)
+      if (!r.ok) throw new Error(cfError(r) ?? 'Cloudflare request failed')
+      pages = r.body.result_info?.total_pages ?? 1
+      for (const z of r.body.result as { id: string; name: string }[]) {
+        if (covered.has(z.id)) continue
+        const c = await cfGet(token, `/accounts/${acc.id}/rum/site_info`, { zone_tag: z.id, auto_install: true })
+        if (c.ok) enabled.push(z.name)
+        else console.warn(`Web Analytics not enabled for ${z.name}: ${cfError(c) ?? c.status}`)
+      }
+    }
+  }
+  return enabled
 }
 
 // ---- analytics ----

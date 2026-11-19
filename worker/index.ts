@@ -1,6 +1,6 @@
 import { RANGES } from '../shared/api.ts'
 import type { ApiError, LiveTicket, Me, Range } from '../shared/api.ts'
-import { cfError, cfGet, fetchAnalytics, listSites, toAccounts } from './cloudflare.ts'
+import { cfError, cfGet, enableMissingSites, fetchAnalytics, listSites, toAccounts } from './cloudflare.ts'
 import { LogError, requestLogs, runtimeLogs } from './logs.ts'
 import { cleanPath, normHost, signTicket, verifyTicket } from './presence.ts'
 import { clearCookie, readToken, sealCookie } from './session.ts'
@@ -150,5 +150,13 @@ export default {
       // Messages from cloudflare.ts never contain the token.
       return fail(e instanceof Error ? e.message : 'Upstream error', 502)
     }
+  },
+  // Cron: give every new domain Web Analytics so it shows up in the dashboard. Optional; off until the
+  // owner sets AUTO_ENABLE_TOKEN (Zone: Read + Account Settings: Edit).
+  async scheduled(_controller, env) {
+    const token = (env as Env & { AUTO_ENABLE_TOKEN?: string }).AUTO_ENABLE_TOKEN
+    if (!token) return
+    const enabled = await enableMissingSites(token)
+    if (enabled.length) console.log(`Web Analytics enabled for ${enabled.join(', ')}`)
   },
 } satisfies ExportedHandler<Env>

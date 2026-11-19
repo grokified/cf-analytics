@@ -67,6 +67,25 @@ Create a **user API token** with these read-only permissions:
 
 Your sites need [Cloudflare Web Analytics](https://developers.cloudflare.com/web-analytics/) turned on, either automatically for proxied sites or with the JS beacon.
 
+### Turn on Web Analytics for new domains automatically
+
+*Optional.* Every 15 minutes a cron trigger can give each domain in your account that has no Web Analytics site one with automatic setup, so domains you add show up in the dashboard without a visit to the Cloudflare dashboard. It uses its own token, never the token someone signs in with, so it only ever changes the accounts that token can reach.
+
+Create a second user API token with:
+
+| Scope | Permission |
+| --- | --- |
+| Zone | Zone: Read (all zones) |
+| Account | Account Settings: Edit |
+
+Then store it as a secret:
+
+```bash
+bunx wrangler secret put AUTO_ENABLE_TOKEN
+```
+
+Without the secret the cron does nothing. Automatic setup injects the Web Analytics beacon into HTML served through Cloudflare's proxy. If you delete a domain's Web Analytics site, the next run adds it back.
+
 ## Local development
 
 ```bash
@@ -101,6 +120,7 @@ One Worker serves both the React single-page app (as [static assets](https://dev
 | `GET /api/live/tickets?account=&site=` | Signed, 12-hour tickets that let the dashboard open live sockets for each site host |
 | `WS /api/live?host=&t=` | Dashboard socket: receives a snapshot of open tabs, pages and countries on every change |
 | `WS /api/rt?site=&p=` | Visitor socket opened by `rt.js` |
+| Cron, every 15 minutes | Turns on Web Analytics for domains without it, when `AUTO_ENABLE_TOKEN` is set |
 
 Each dashboard load is a single GraphQL request to the `rumPageloadEventsAdaptiveGroups` dataset. Aliases fetch the totals, the previous period, online visitors, the series and seven breakdowns in one round trip. The request and response types live in [`shared/api.ts`](shared/api.ts), which both the Worker and the UI import.
 
