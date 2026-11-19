@@ -78,9 +78,15 @@ export default function Logs({ me, onLogout, onNavigate }: { me: Me; onLogout: (
   const key = `${url}|${tick}`
   const loading = fetching && done !== key
 
+  // Refetch on Refresh and whenever the tab comes back into view, so sites added in Cloudflare show up.
   useEffect(() => {
-    api<Site[]>('/api/sites').then(setSites, () => setSites([]))
-  }, [])
+    // A failed refetch keeps the list we already have.
+    const load = () => api<Site[]>('/api/sites').then(setSites, () => setSites((p) => p ?? []))
+    const onVisible = () => document.visibilityState === 'visible' && load()
+    load()
+    document.addEventListener('visibilitychange', onVisible)
+    return () => document.removeEventListener('visibilitychange', onVisible)
+  }, [tick])
 
   useEffect(() => {
     const t = setTimeout(() => setF((p) => (p.q === qInput ? p : { ...p, q: qInput })), 300)

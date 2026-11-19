@@ -26,9 +26,21 @@ export default function Dashboard({ me, onLogout, onNavigate }: { me: Me; onLogo
   const loading = done.key !== key
   const error = (loading ? '' : done.error) || sitesError
 
+  // Refetch on Refresh and whenever the tab comes back into view, so sites added in Cloudflare show up.
   useEffect(() => {
-    api<Site[]>('/api/sites').then(setSites, (e: Error) => setSitesError(e.message))
-  }, [])
+    const load = () =>
+      api<Site[]>('/api/sites').then(
+        (s) => {
+          setSites(s)
+          setSitesError('')
+        },
+        (e: Error) => setSitesError(e.message),
+      )
+    const onVisible = () => document.visibilityState === 'visible' && load()
+    load()
+    document.addEventListener('visibilitychange', onVisible)
+    return () => document.removeEventListener('visibilitychange', onVisible)
+  }, [tick])
 
   useEffect(() => {
     const p = new URLSearchParams(location.search)
